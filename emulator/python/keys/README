@@ -1,0 +1,77 @@
+To get the public AK key:
+    pub = mars.PubRead(True, b'')
+    pem = pub.export_key(format='PEM')
+    print(pem)
+    copy output to akpub.pem
+or, get the private key and extract
+    print('AK PRV', mars.AK.export_key(format='PEM'))
+    Copy output to: akprv.pem
+    openssl ec -in akprv.pem -pubout -out akpub.pem
+
+To sign a file, README --> sig.bin:
+    openssl dgst -sha256 -sign akprv.pem README > sig.bin
+
+To verify:
+    openssl dgst -sha256 -verify akpub.pem -signature sig.bin README
+    rm sig.bin
+
+-------------------
+
+To verify a stackoverflow.com web cert:
+
+Export certs from web browser
+cat ISRG.com R3.com > both.com
+openssl verify -verbose -CAfile both.com sxchg.com 
+
+------------------
+
+Create a new key (ez.pem) and self-signed cert (ez.crt):
+
+openssl ecparam -name prime256v1 -genkey -out ez.pem 
+openssl req -new -x509 -key ez.pem -out ez.crt -days 730
+openssl x509 -text -noout -in ez.crt
+# notice that subject and authority key identifiers are the same
+
+-----------------
+Create an AK cert
+
+Create cert signing request, and sign using CA
+openssl req -new -key akprv.pem -out ak.csr
+openssl x509 -req -in ak.csr -CA ez.crt -CAkey ez.pem -out ak.crt -set_serial 1
+or: openssl x509 -req -in ak.csr -force_pubkey akpub.pem -CA ez.crt -CAkey ez.pem -out ak.crt -set_serial 1
+
+----------------
+Verify cert (ak) in approved chain (ez)
+
+openssl verify -verbose -CAfile ez.crt ak.crt
+
+----------------
+
+Extract the public key from the ak.crt
+
+openssl x509 -in ak.crt -pubkey -noout
+verify output matches akpub.pem
+
+-----------------
+
+To read the TPM's EK cert:
+
+export TPM_INTERFACE_TYPE=dev
+export TPM_DEVICE=/dev/tpm0
+tssnvread -ha 01c00002 -of EKtpm.der 
+openssl x509 -inform d -in EKtpm.der -text | less
+
+-----------------
+
+Convert from DER --> PEM
+(assuming the DER is a certificate)
+
+echo '-----BEGIN CERTIFICATE-----'
+base64 -w 64 file.der
+echo '-----END CERTIFICATE-----'
+
+--
+
+Convert from PEM --> DER
+
+tail -n +2 file.pem | head -n -1 | base64 -d 

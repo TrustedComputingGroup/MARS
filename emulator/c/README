@@ -1,0 +1,113 @@
+MARS: Prototype emulator of TCG MARS spec
+Author: Tom Brostrom
+
+Builds MARS dispatchers using Ascon, AUTOSAR SHE, SHA2, SHA3
+
+BUILD INSTRUCTIONS
+
+    Download MARS repository
+        wget https://github.com/TrustedComputingGroup/MARS/archive/refs/heads/main.zip
+        unzip main.zip
+        rm main.zip
+        mv MARS-main mars
+
+CBOR:
+    cd .../mars/emulator
+    wget https://github.com/intel/tinycbor/archive/refs/tags/v0.6.0.zip
+    unzip v0.6.0.zip
+    rm v0.6.0.zip
+    mv tinycbor-0.6.0 tinycbor
+    cd tinycbor/src
+    gcc -c -Os -fpic *.c
+    gcc -shared -o ../../build/libtinycbor.so *.o -lm
+
+Ascon:
+    cd .../mars/emulator
+    wget https://github.com/TheMatjaz/LibAscon/archive/refs/tags/v1.2.0.zip
+    unzip v1.2.0.zip
+    rm v1.2.0.zip
+    mv LibAscon-1.2.0 ascon
+    cd ascon/src
+    gcc -c -Os *.c -I../inc -std=c99
+    ar r ../../build/ascon.a *.o
+
+AES:
+    cd .../mars/emulator
+    wget https://github.com/kokke/tiny-AES-c/archive/refs/tags/v1.0.0.zip
+    unzip v1.0.0.zip
+    rm v1.0.0.zip
+    mv tiny-AES-c-1.0.0 aes
+    # below's make will build
+
+SHA2:
+    Requires openssl (tested on 1.0.2)
+    if openssl3 is downloaded:
+    cd .../mars/emulator
+    mv openssl/openssl-openssl-3.0/libcrypto.so.3 build/
+
+SHA3:
+    Requires openssl (tested on 3.0)
+
+make
+    cd .../mars/emulator/c
+    make
+	# executables --> ../build
+
+To run:
+    in one window:
+    export LD_LIBRARY_PATH+=:<full_path_to>/mars/emulator/build
+    # start a dispatcher, one of: dispa (with ascon), disps (with SHE)
+    # disp2 (with SHA2), disp3 (with SHA3)
+    ../build/dispa
+
+    in another window:
+    ../build/demo
+
+ARCHITECTURE
+
+The layering of software used here is as follows, and is described below:
+
+	APPLICATION
+	MARS
+	CRYPT PRIMITIVES
+	BASE CRYPTOGRAPHIC ALGORITHMS
+
+ARCHITECTURE.BASE CRYPTOGRAPHIC ALGORITHMS
+
+The algorithms implemented here were envisioned to be, but not limited to, those implemented in microcontroller hardware as an internal peripheral to accelerate specific cryptographic operations. These algorithms form the basis for which all cryptographic processing is done by MARS.
+
+The base algorithms used here are SHA256 and Ascon.
+
+ARCHITECTURE.CRYPT PRIMITIVES
+
+These so-called "crypt" primitives are those required by MARS. They are documented in the MARS Library Specification as Support Functions. "Crypt" functions are constructed using the base algorithms.  Those functions share a common prefix and are named:
+
+CryptHashInit, CryptHashUpdate, CryptHashFinal
+- produce a fixed-size digest as a result of hashing variable length input
+
+CryptSign - signs a provided digest
+
+CryptVerify - determines if a signature is valid for the provided digest and the specified signing key
+
+CryptSkdf - derive a Symmetric key 
+
+CryptAkdf - derive an Asymmetric key
+
+CryptXkdf - performs CryptAkdf if implemented, otherwise CryptSkdf
+
+Source code implementing the crypt functions are found in hw_*.c.
+
+Examples include hw_ascon.c and hw_she.c.
+
+
+ARCHITECTURE.MARS
+
+The emulator for MARS and the API is found in mars.c. MARS is crypt-agnostic and can be viewed as a state machine that orchestrates the Crypt layer to function as a root-of-trust.
+
+mars.c is compiled for the appropriate Crypt layer by pre-including that layer's header file. This can be seen in the Makefile where the "-include" argument is used with gcc.
+
+
+ARCHITECTURE.APPLICATION
+
+Application code built upon MARS is available as simple demonstration programs. Refer to demo*.c.
+

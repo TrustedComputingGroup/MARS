@@ -1,0 +1,231 @@
+; MARS command codes
+CC_SelfTest =            0
+CC_CapabilityGet =       1
+CC_SequenceHash =        2
+CC_SequenceUpdate =      3
+CC_SequenceComplete =    4
+CC_PcrExtend =           5
+CC_RegRead =             6
+CC_Derive =              7
+CC_DpDerive =            8
+CC_PublicRead =          9
+CC_Quote =               10
+CC_Sign =                11
+CC_SignatureVerify =     12
+
+; MARS Return codes
+rc_success = 0
+rc_io      = 1
+rc_failure = 2
+rc_buffer  = 4
+rc_command = 5
+rc_value   = 6
+rc_reg     = 7
+rc_seq     = 8
+
+; MARS Capabilities
+; number of consecutive PCRs implemented on this MARS
+PT_PCR =        1
+; number of consecutive TSRs implemented on this MARS
+PT_TSR =        2
+; size of a digest that can be processed or produced
+PT_LEN_DIGEST = 3
+; size of signature produced by CryptSign()
+PT_LEN_SIGN =   4
+; size of symmetric key produced by CryptSkdf()
+PT_LEN_KSYM =   5
+; size of asymmetric key returned by PublicRead()
+PT_LEN_KPUB =   6
+; size of private asymmetric key produced by CryptAkdf()
+PT_LEN_KPRV =   7
+; TCG-registered algorithm for hashing by CryptHash()
+PT_ALG_HASH =   8
+; TCG-registered algorithm for signing by CryptSign()
+PT_ALG_SIGN =   9
+; TCG-registered algorithm for symmetric key derivation by CryptSkdf()
+PT_ALG_SKDF =   10
+; TCG-registered algorithm for asymmetric key derivation by CryptAkdf()
+PT_ALG_AKDF =   11
+
+; Implementation specific parameters
+uint16 = 0..65535
+; Arbitrary length binary data
+binary_data = bstr .size (0..2048)
+
+; binary data of length PT_LEN_DIGEST
+digest_data = bstr .size 32
+; binary data of length PT_LEN_KSYM
+ksym_data = bstr .size 32
+; binary data of length PT_LEN_KPUB
+kpub_data = bstr .size 32
+; binary data of length PT_LEN_SIGN
+sign_data = bstr .size 32
+
+; bit mask selecting PCRs and TSRs
+reg_select_type = uint .size 4
+
+SelfTest = (
+    CC_SelfTest,
+    full_test: bool,
+)
+
+CapabilityGet = (
+     CC_CapabilityGet,
+     capability:    PT_PCR /
+                    PT_TSR /
+                    PT_LEN_DIGEST /
+                    PT_LEN_SIGN /
+                    PT_LEN_KSYM /
+                    PT_LEN_KPUB /
+                    PT_LEN_KPRV /
+                    PT_ALG_HASH /
+                    PT_ALG_SIGN /
+                    PT_ALG_SKDF /
+                    PT_ALG_AKDF,
+)
+
+CapabilityGet_Rsp = (
+    rc_success,
+    capability_data: uint16
+)
+
+SequenceHash = (
+     code: CC_SequenceHash,
+)
+
+SequenceUpdate = (
+     CC_SequenceUpdate,
+     binary_data,
+)
+
+SequenceUpdate_Rsp = (
+    rc_success,
+    ? binary_data
+)
+
+SequenceComplete = (
+     CC_SequenceComplete,
+)
+
+SequenceComplete_Rsp = (
+    rc_success,
+    ? binary_data,
+)
+
+PcrExtend = (
+    CC_PcrExtend,
+    reg_select_type,
+    digest_data,
+)
+
+RegRead = (
+    CC_RegRead,
+    reg_select: reg_select_type,
+)
+
+RegRead_Rsp = (
+    rc_success,
+    digest_data,
+)
+
+Derive = (
+    CC_Derive,
+    reg_select: reg_select_type,
+    context: binary_data
+)
+
+Derive_Rsp = (
+    rc_success,
+    ksym_data
+)
+
+DpDerive = (
+    CC_DpDerive,
+    reg_select: reg_select_type,
+    context: nil / binary_data
+)
+
+PublicRead = (
+    CC_PublicRead,
+)
+
+PublicRead_Rsp = (
+    rc_success,
+    kpub_data
+)
+
+Quote = (
+    CC_Quote,
+    reg_select: reg_select_type,
+    nonce: digest_data,
+    context: binary_data
+)
+
+Quote_Rsp = (
+    rc_success,
+    sign_data
+)
+
+Sign = (
+    CC_Sign,
+    context: binary_data,
+    digest: digest_data,
+)
+
+Sign_Rsp = (
+    rc_success,
+    sign_data
+)
+
+SignatureVerify = (
+    CC_SignatureVerify,
+    retricted: bool,
+    context: binary_data,
+    digest: digest_data,
+    signature: sign_data,
+)
+
+SignatureVerify_Rsp = (
+    rc_success,
+    bool
+)
+
+; MARS Command
+mars_command = [
+               SelfTest /
+               CapabilityGet /
+               SequenceHash /
+               SequenceUpdate /
+               SequenceComplete /
+               PcrExtend /
+               RegRead /
+               Derive /
+               DpDerive /
+               PublicRead /
+               Quote /
+               Sign /
+               SignatureVerify
+]
+
+; MARS Response
+; To simplify encoding, unconditionally put response code first
+; and make data optional.
+mars_response = [
+    rc:   ( rc_success /
+            rc_io      /
+            rc_failure /
+            rc_buffer  /
+            rc_command /
+            rc_value   /
+            rc_reg     /
+            rc_seq     ) /
+            CapabilityGet_Rsp /
+            SequenceUpdate_Rsp /
+            SequenceComplete_Rsp /
+            RegRead_Rsp /
+            Derive_Rsp /
+            PublicRead_Rsp /
+            Quote_Rsp /
+            Sign_Rsp /
+            SignatureVerify_Rsp
+]

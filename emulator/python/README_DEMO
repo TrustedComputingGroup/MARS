@@ -1,0 +1,32 @@
+DEPENDENCIES:
+pip install cbor2
+openssl
+
+All messages are formatted via CBOR and sent over UDP.
+
+.--------.                    .--------.
+| CLIENT |                    | SERVER |
+'--------'                    '--------'
+    |                              |
+    |                              |
+    | devid, bsize --------------> |
+    |                              |
+    | <------------- nonce, pcrsel |
+    |                              |
+    | hw, endorser, EventLog,      |
+    | PCRs, signature, AKcert ---> |
+    |                              |
+    | <----------------- reply msg |
+    |                              |
+
+    devid = device identifier derived from MARS (not X509)
+    bsize = PCR bank size = # of PCRs
+    nonce = number used once as a freshness challenge
+   pcrsel = PCR selection, bitmask of PCRs to quote
+       hw = crypto "hardware" used by MARS
+ endorser = for symmetric attestation, location of endorser / signature verifier
+ EventLog = subset of Event Log matching pcrsel
+signature = MARS_Quote
+   AKcert = X509 certificate for AK, if asymmetric supported
+reply msg = textual response
+
