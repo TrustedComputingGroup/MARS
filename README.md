@@ -12,5 +12,5 @@ This repository contains TCG MARS informative examples of
 
 * [ MARS Library Specification ]( https://trustedcomputinggroup.org/resource/mars-library-specification/ )
 * [ Errata for MARS Library Specification ]( https://trustedcomputinggroup.org/resource/errata-for-mars-library-specification/ )
-* [ MARS API Specification (draft) ]( https://trustedcomputinggroup.org/wp-content/uploads/TCG_MARS_API_Spec_v1r0_10February23.pdf )
+* [ MARS API Specification ]( https://trustedcomputinggroup.org/resource/tcg-mars-api-specification/ )
 * [ MARS Use Cases and Considerations ]( https://trustedcomputinggroup.org/resource/mars-use-cases-and-considerations/ )

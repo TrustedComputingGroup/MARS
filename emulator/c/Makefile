@@ -6,10 +6,9 @@ ALLB := $(ALL:%=$(BUILD)/%)
 all: $(BUILD) $(ALLB)
 
 # check for local install of openssl3
-OSL3DIR ?= ../openssl/openssl-openssl-3.0
 ifneq ($(wildcard $(OSL3DIR)), )
     OSL3INC := -I $(OSL3DIR)/include -Wno-deprecated-declarations
-    OSL3LIB := $(BUILD)/libcrypto.so
+    OSL3LIB := -L $(OSL3DIR)/lib -lcrypto
 else
     OSL3INC := -Wno-deprecated-declarations
     OSL3LIB := -lcrypto
@@ -21,11 +20,11 @@ $(BUILD)/dispa: hw_ascon.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_ascon.o $(
 $(BUILD)/disps: hw_she.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_she.o $(BUILD)/hw_she.o $(BUILD)/aes.o
 	gcc -o $@ -include $^ $(BUILD)/libtinycbor.so
 
-$(BUILD)/disp2: hw_sha2.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_sha2.o $(BUILD)/hw_sha2.o $(OSL3LIB)
-	gcc -o $@ -include $^ $(BUILD)/libtinycbor.so
+$(BUILD)/disp2: hw_sha2.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_sha2.o $(BUILD)/hw_sha2.o
+	gcc -o $@ -include $^ $(BUILD)/libtinycbor.so $(OSL3LIB)
 
-$(BUILD)/disp3: hw_sha3.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_sha3.o $(BUILD)/hw_sha3.o $(OSL3LIB)
-	gcc -o $@ -include $^ $(BUILD)/libtinycbor.so
+$(BUILD)/disp3: hw_sha3.h dispatcher.c $(BUILD)/vget.o $(BUILD)/mars_sha3.o $(BUILD)/hw_sha3.o
+	gcc -o $@ -include $^ $(BUILD)/libtinycbor.so $(OSL3LIB)
 
 $(BUILD):
 	mkdir $@

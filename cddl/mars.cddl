@@ -1,4 +1,25 @@
-; MARS command codes
+; Implementation specific parameters
+; These parameters must be set by the implementor according to the
+; relevant profile specification.
+; Values used here are based on SHA-256 and HMAC-SHA256
+uint16 = 0...65536
+; Arbitrary length binary data
+binary_data = bstr .size (0...2048)
+; binary data of length PROFILE_LEN_DIGEST
+digest_data = bstr .size 32
+; binary data of length PROFILE_LEN_KSYM
+ksym_data = bstr .size 32
+; binary data of length PROFILE_LEN_KPUB
+kpub_data = bstr .size 0
+; binary data of length PROFILE_LEN_SIGN
+sign_data = bstr .size 32
+; bit mask selecting PCRs and TSRs
+reg_select_type = uint .size 4
+; index of a PCR or TSR
+reg_index_type = uint .size 1
+; End of implementation specific parameters
+
+; MARS Command Codes
 CC_SelfTest =            0
 CC_CapabilityGet =       1
 CC_SequenceHash =        2
@@ -13,7 +34,7 @@ CC_Quote =               10
 CC_Sign =                11
 CC_SignatureVerify =     12
 
-; MARS Return codes
+; MARS Response Codes
 rc_success = 0
 rc_io      = 1
 rc_failure = 2
@@ -23,7 +44,7 @@ rc_value   = 6
 rc_reg     = 7
 rc_seq     = 8
 
-; MARS Capabilities
+; MARS Capability Property Tags
 ; number of consecutive PCRs implemented on this MARS
 PT_PCR =        1
 ; number of consecutive TSRs implemented on this MARS
@@ -47,26 +68,14 @@ PT_ALG_SKDF =   10
 ; TCG-registered algorithm for asymmetric key derivation by CryptAkdf()
 PT_ALG_AKDF =   11
 
-; Implementation specific parameters
-uint16 = 0..65535
-; Arbitrary length binary data
-binary_data = bstr .size (0..2048)
-
-; binary data of length PT_LEN_DIGEST
-digest_data = bstr .size 32
-; binary data of length PT_LEN_KSYM
-ksym_data = bstr .size 32
-; binary data of length PT_LEN_KPUB
-kpub_data = bstr .size 32
-; binary data of length PT_LEN_SIGN
-sign_data = bstr .size 32
-
-; bit mask selecting PCRs and TSRs
-reg_select_type = uint .size 4
-
 SelfTest = (
     CC_SelfTest,
     full_test: bool,
+)
+
+SelfTest_Rsp = (
+    rc_success /
+    rc_failure
 )
 
 CapabilityGet = (
@@ -85,12 +94,21 @@ CapabilityGet = (
 )
 
 CapabilityGet_Rsp = (
-    rc_success,
-    capability_data: uint16
+    (rc_success,
+    capability_data: uint16) /
+    rc_value /
+    rc_buffer
 )
 
 SequenceHash = (
      code: CC_SequenceHash,
+)
+
+SequenceHash_Rsp = (
+    rc_success /
+    rc_seq /
+    rc_command /
+    rc_failure
 )
 
 SequenceUpdate = (
@@ -99,8 +117,12 @@ SequenceUpdate = (
 )
 
 SequenceUpdate_Rsp = (
-    rc_success,
-    ? binary_data
+    (rc_success,
+    binary_data) /
+    rc_seq /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 SequenceComplete = (
@@ -108,24 +130,40 @@ SequenceComplete = (
 )
 
 SequenceComplete_Rsp = (
-    rc_success,
-    ? binary_data,
+    (rc_success,
+    binary_data) /
+    rc_seq /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 PcrExtend = (
     CC_PcrExtend,
-    reg_select_type,
+    reg_index: reg_index_type,
     digest_data,
+)
+
+PcrExtend_Rsp = (
+    rc_success /
+    rc_reg /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 RegRead = (
     CC_RegRead,
-    reg_select: reg_select_type,
+    reg_index: reg_index_type,
 )
 
 RegRead_Rsp = (
-    rc_success,
-    digest_data,
+    (rc_success,
+    digest_data) /
+    rc_reg /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 Derive = (
@@ -135,8 +173,12 @@ Derive = (
 )
 
 Derive_Rsp = (
-    rc_success,
-    ksym_data
+    (rc_success,
+    ksym_data) /
+    rc_reg /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 DpDerive = (
@@ -145,13 +187,26 @@ DpDerive = (
     context: nil / binary_data
 )
 
+DpDerive_Rsp = (
+    rc_success /
+    rc_reg /
+    rc_buffer /
+    rc_command /
+    rc_failure
+)
+
 PublicRead = (
     CC_PublicRead,
+    retricted: bool,
+    context: binary_data,
 )
 
 PublicRead_Rsp = (
-    rc_success,
-    kpub_data
+    (rc_success,
+    kpub_data) /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 Quote = (
@@ -162,8 +217,12 @@ Quote = (
 )
 
 Quote_Rsp = (
-    rc_success,
-    sign_data
+    (rc_success,
+    sign_data) /
+    rc_reg /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 Sign = (
@@ -173,8 +232,11 @@ Sign = (
 )
 
 Sign_Rsp = (
-    rc_success,
-    sign_data
+    (rc_success,
+    sign_data) /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 SignatureVerify = (
@@ -186,46 +248,48 @@ SignatureVerify = (
 )
 
 SignatureVerify_Rsp = (
-    rc_success,
-    bool
+    (rc_success,
+    bool) /
+    rc_buffer /
+    rc_command /
+    rc_failure
 )
 
 ; MARS Command
 mars_command = [
-               SelfTest /
-               CapabilityGet /
-               SequenceHash /
-               SequenceUpdate /
-               SequenceComplete /
-               PcrExtend /
-               RegRead /
-               Derive /
-               DpDerive /
-               PublicRead /
-               Quote /
-               Sign /
-               SignatureVerify
+        SelfTest /
+        CapabilityGet /
+        SequenceHash /
+        SequenceUpdate /
+        SequenceComplete /
+        PcrExtend /
+        RegRead /
+        Derive /
+        DpDerive /
+        PublicRead /
+        Quote /
+        Sign /
+        SignatureVerify
 ]
 
 ; MARS Response
-; To simplify encoding, unconditionally put response code first
-; and make data optional.
+; Due to pattern matching processing, the order of the response codes
+; is important.  The most specific response code must be first.
+; This type is for convinience of validation. Implementation should
+; use the specific response types bound to the command.
 mars_response = [
-    rc:   ( rc_success /
-            rc_io      /
-            rc_failure /
-            rc_buffer  /
-            rc_command /
-            rc_value   /
-            rc_reg     /
-            rc_seq     ) /
-            CapabilityGet_Rsp /
-            SequenceUpdate_Rsp /
-            SequenceComplete_Rsp /
-            RegRead_Rsp /
-            Derive_Rsp /
-            PublicRead_Rsp /
-            Quote_Rsp /
-            Sign_Rsp /
-            SignatureVerify_Rsp
+    rc:
+        PublicRead_Rsp /
+        Quote_Rsp /
+        Sign_Rsp /
+        RegRead_Rsp /
+        SignatureVerify_Rsp /
+        Derive_Rsp /
+        CapabilityGet_Rsp /
+        SequenceUpdate_Rsp /
+        SequenceComplete_Rsp /
+        SelfTest_Rsp /
+        SequenceHash_Rsp /
+        PcrExtend_Rsp /
+        DpDerive_Rsp
 ]

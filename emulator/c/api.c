@@ -73,7 +73,7 @@ MARS_RC MARS_Unlock()
 // The last parameter is the address(es) to hold the return value(s).
 MARS_RC mz_xqt(const char *ptype, ...)
 {
-    unsigned int rc;
+    MARS_RC rc;
     char rettype = *ptype++;
     va_list ap;
     uint32_t i;
@@ -90,7 +90,8 @@ MARS_RC mz_xqt(const char *ptype, ...)
     CborEncoder in, out, array;
 
     cbor_encoder_init(&out, cmdblob, sizeof(cmdblob), 0);
-    cbor_encoder_create_array(&out, &array, CborIndefiniteLength);
+    for (i=0; ptype[i]; ++i) ;
+    cbor_encoder_create_array(&out, &array, i); // CborIndefiniteLength);
 
     va_start(ap, ptype);
     while (!err && *ptype)      // walk through parameter types
@@ -138,7 +139,6 @@ MARS_RC mz_xqt(const char *ptype, ...)
         cbor_value_to_pretty_advance(stdout, &it);
         printf("\n");
 
-        // TODO send cmdblob to dispatcher, wait for and read rspblob
         rsplen = sizeof(rspblob);
         // dispatcher(cmdblob, cmdlen, rspblob, &rsplen);
         rsplen = MARS_Transport(mz.txrx_ctx, cmdblob, cmdlen, rspblob, rsplen);
@@ -149,17 +149,22 @@ MARS_RC mz_xqt(const char *ptype, ...)
         cbor_value_to_pretty_advance(stdout, &it);
         printf("\n");
 
-
         // get the Response Code and result, if any
-        cbor_parser_init(rspblob, rsplen, 0, &parser, &it);
-        cbor_value_enter_container(&it, &it);
-
-        void *p1, *p2;
-        char f[] = "h-";
-        f[1] = rettype=='-' ? 0 : rettype;
-        va_get(p1);
-        va_get(p2);
-        cbor_vget(&it, f, &rc, p1, p2); // TODO should not proces params if bad rc
+        if (cbor_parser_init(rspblob, rsplen, 0, &parser, &it)
+                || cbor_value_enter_container(&it, &it)
+                || cbor_vget(&it, "h", &rc))
+            rc = MARS_RC_IO;
+        else if (!rc && (rettype != '-')) {
+            void *p1, *p2;
+            char f[] = "-";
+            f[0] = rettype;
+            va_get(p1);
+            va_get(p2); // in case retype is 'x'
+            if (cbor_vget(&it, f, p1, p2))
+                rc = MARS_RC_IO;
+        }
+        if (!cbor_value_at_end(&it))
+            rc = MARS_RC_IO;
     }
 
     va_end(ap);

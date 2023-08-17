@@ -1,3 +1,5 @@
+// creates values used for Serialization Spec
+
 #include <string.h> // for memset()
 #include <stdio.h>
 #include <stdbool.h>
@@ -81,10 +83,12 @@ bool flag;
 
 uint8_t dig[diglen];
 uint8_t sig[siglen];
-uint8_t id[keylen];
-uint8_t nonce[diglen];
+uint8_t ssk[keylen];
+uint8_t nonce[] = { // should be generated randomly, but this is for repeatable demo
+        0x48, 0x98, 0x4c, 0xe5, 0xd3, 0x9b, 0x6e, 0x27, 0x1e, 0x91, 0xbf, 0xaa, 0xda, 0xa1, 0x5b, 0xaf,
+        0xcc, 0xfd, 0x32, 0xd8, 0xe1, 0x92, 0xb9, 0xea, 0x5d, 0xfc, 0x6f, 0x0a, 0xa3, 0x99, 0x72, 0x01 };
 
-    char msg1[] = "this is a test";
+    char msg1[] = "TCG MARS demo";
     MARS_SequenceHash();
     outlen = 0;
     MARS_SequenceUpdate(msg1, sizeof(msg1)-1, 0, &outlen);
@@ -97,11 +101,15 @@ uint8_t nonce[diglen];
     MARS_RegRead(0, dig);
     hexout("PCR0", dig, sizeof(dig));
 
-    MARS_Derive(1, "CompoundDeviceID", 16, id);
-    hexout("CDI1", id, sizeof(id));
+    MARS_Derive(1, "SealedStorageKey", 16, ssk);
+    hexout("SSK", ssk, sizeof(ssk));
 
-    memset(nonce, 'Q', sizeof(nonce));
-    MARS_Quote(/*regsel*/1<<0, nonce, sizeof(nonce), /*AK ctx*/"", /*ctxlen*/0, sig);
+    MARS_DpDerive(1, "child", 5);
+    // MARS_DpDerive(0, 0, 0);
+
+    MARS_PublicRead(true, "AK1", 3, ""); // MARS_RC_COMMAND - not implemented
+
+    MARS_Quote(/*regsel*/1<<0, nonce, sizeof(nonce), /*AK ctx*/"AK1", /*ctxlen*/3, sig);
     hexout("SIG", sig, sizeof(sig));
 
     // To verify a quote, the snapshot has to be reproduced
@@ -115,17 +123,13 @@ uint8_t nonce[diglen];
     MARS_SequenceComplete(dig, &outlen);
     hexout("SS", dig, outlen);
 
-    MARS_SignatureVerify(true, /*ctx*/"", /*ctxlen*/0,
+    MARS_SignatureVerify(true, /*ctx*/"AK1", /*ctxlen*/3,
         dig, sig, &flag);
     printf("Verify %s\n", flag ? "True" : "False");
 
-    MARS_DpDerive(0, "XYZZY", 5);
-    MARS_Derive(1, "CompoundDeviceID", 16, id);
-    hexout("CDI2", id, sizeof(id));
-
-    MARS_DpDerive(0, 0, 0);
-    MARS_Derive(1, "CompoundDeviceID", 16, id);
-    hexout("CDI1", id, sizeof(id));
+    // demo signing the nonce with an unrestricted key
+    MARS_Sign("ukey", 4, nonce, sig);
+    hexout("Sign", sig, sizeof(sig));
 
     MARS_Unlock();
 }

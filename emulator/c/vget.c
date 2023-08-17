@@ -7,6 +7,7 @@
 // 'h' is half word (16-bit) integer
 // 'x' is byte string taking 2 parameters, buffer pointer and length pointer
 // 'X' is byte string taking 2 parameters, buffer pointer and mandatory length
+// '.' checks that there are no remaining parameters
 CborError cbor_vget(CborValue *it, const char *ptype, ...)
 {
     CborError err = CborNoError;
@@ -65,15 +66,16 @@ CborError cbor_vget(CborValue *it, const char *ptype, ...)
                     && (cbor_value_calculate_string_length (it, &z2), z==z2))
                 ? cbor_value_copy_byte_string (it, p, &z2, it)
                 : CborUnknownError;
-            if (err)
-                *zp = 0;
+            break;
+
+        case '.':
+            err = cbor_value_at_end(it) ? CborNoError : CborErrorGarbageAtEnd;
             break;
 
         default:
             err = CborUnknownError;
         }
     va_end(ap);
-    if (err) printf("VGET err %d on '%c'\n", err, ptype[-1]);
     return err;
 }
 
